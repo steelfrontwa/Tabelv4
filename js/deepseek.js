@@ -7,7 +7,7 @@ const DeepSeek = (() => {
 
   const API_URL      = 'https://api.deepseek.com/v1/chat/completions';
   const MODEL        = 'deepseek-chat';
-  const LS_KEY       = 'sk-b76a110172444ad4a5152ff2b1ebc2ec';
+  const LS_KEY       = 'deepseek_api_key';
 
   // ── Системный промпт ──────────────────────────────────
   const SYSTEM_PROMPT = `Ты — профессиональный автоматизированный бухгалтер для компаний по аренде спецтехники. Твоя единственная задача — прочитать хаотичный текст отчётов водителей из мессенджера и извлечь из него структурированные данные.
