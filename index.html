@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <meta name="theme-color" content="#f5a623">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Табель">
+  <link rel="manifest" href="manifest.json">
+  <title>Мой Табель</title>
+
+  <!-- Стили -->
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<!-- ── ЭКРАН ПАРОЛЯ ─────────────────────────────────────── -->
+<div id="auth-modal" class="auth-modal">
+  <div class="auth-card">
+    <div class="auth-title">МОЙ ТАБЕЛЬ</div>
+    <div class="auth-sub">Введите пароль доступа</div>
+    <input type="password" id="auth-password" class="auth-input"
+      placeholder="••••••••" autocomplete="current-password">
+    <button id="auth-submit" class="auth-btn">ВОЙТИ</button>
+    <div id="auth-error" class="auth-error"></div>
+  </div>
+</div>
+
+<!-- ── ЭКРАН ПРОФИЛЯ ────────────────────────────────────── -->
+<div id="profile-modal" class="profile-modal" style="display:none">
+  <div class="profile-shell">
+    <div class="profile-hero">
+      <div class="profile-kicker">ПРОФИЛЬ ВОДИТЕЛЯ</div>
+      <div class="profile-title">Выбери технику и ставки</div>
+      <div class="profile-text">Сервис запомнит выбранные машины и сам посчитает оплату по месяцам.</div>
+    </div>
+
+    <div class="profile-card">
+      <div class="profile-section-title">Машины в работе</div>
+      <div id="machine-grid" class="machine-grid"></div>
+    </div>
+
+    <div class="profile-card">
+      <div class="profile-section-title">Ставки по технике</div>
+      <div id="rate-list" class="rate-list"></div>
+    </div>
+
+    <div class="profile-card">
+      <div class="profile-section-title">Общие настройки</div>
+      <div class="profile-fields">
+        <label class="profile-field">
+          <span>Водитель</span>
+          <input id="profile-name" type="text" placeholder="Иванов И.И.">
+        </label>
+        <label class="profile-field">
+          <span>Месяц</span>
+          <input id="profile-period" type="text" placeholder="Май 2026">
+        </label>
+        <label class="profile-field">
+          <span>Фикс. оклад</span>
+          <input id="profile-oklad" type="number" placeholder="0" inputmode="decimal">
+        </label>
+      </div>
+    </div>
+
+    <button id="profile-save" class="profile-btn">СОХРАНИТЬ И ПРОДОЛЖИТЬ</button>
+  </div>
+</div>
+
+<!-- ── ОСНОВНОЕ ПРИЛОЖЕНИЕ ──────────────────────────────── -->
+<div id="main-app" style="display:none">
+<div class="app-container">
+
+  <div class="header">
+    <div class="app-title">МОЙ ТАБЕЛЬ</div>
+    <div class="app-sub">Вставь сообщения из чата → табель готов</div>
+    <div class="driver-pill">
+      <span id="driver-pill-name">Водитель</span>
+      <span id="driver-pill-meta"></span>
+    </div>
+  </div>
+
+  <div id="app-status" class="app-status" aria-live="polite"></div>
+
+  <!-- Вкладки -->
+  <div class="tabs">
+    <div class="tab active" data-tab="insert">Вставить</div>
+    <div class="tab" data-tab="tabel">Табель <span id="row-badge"></span></div>
+    <div class="tab" data-tab="itogi">Итоги</div>
+    <div class="tab" data-tab="settings">⚙️</div>
+  </div>
+
+  <!-- ── ВКЛАДКА: ВСТАВИТЬ ──────────────────────────────── -->
+  <div id="tab-insert" class="tab-content active">
+
+    <div class="card">
+      <div class="section-title">Настройки водителя</div>
+      <div class="row-3">
+        <div class="field-group">
+          <label class="field-label">Водитель (ФИО)</label>
+          <input class="field-input" id="drv-name" placeholder="Иванов И.И.">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Период</label>
+          <input class="field-input" id="drv-period" placeholder="Май 2026">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Оклад фикс. ₽</label>
+          <input class="field-input" id="drv-oklad" type="number"
+            placeholder="150000" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Вставь свои сообщения из чата</div>
+      <textarea class="field-textarea" id="chat-in"
+        placeholder="Дмитрий Самарский:&#10;06.05 764&#10;9 просека - ракита 1 рейс&#10;9 просека - база 2 рейса&#10;&#10;Дмитрий Самарский:&#10;12.05 6547&#10;Баланс тауер 4 часа чл"></textarea>
+      <button class="btn" id="parse-btn">РАЗОБРАТЬ</button>
+      <button class="btn btn-ai" id="ai-parse-btn">🤖 Умный разбор (ИИ)</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Добавить строку вручную</div>
+      <div class="add-inputs">
+        <input class="field-input" id="a-date"    placeholder="01.05"          style="max-width:70px">
+        <input class="field-input" id="a-machine" placeholder="607 / эп / хово" style="max-width:110px">
+        <input class="field-input" id="a-addr"    placeholder="Адрес / маршрут" style="flex:3">
+      </div>
+      <div class="add-inputs">
+        <input class="field-input" id="a-cargo"  placeholder="Груз"     style="flex:1">
+        <input class="field-input" id="a-client" placeholder="Заказчик" style="flex:1">
+        <input class="field-input" id="a-hours"  type="number" placeholder="ч"   style="max-width:60px" inputmode="decimal">
+        <input class="field-input" id="a-trips"  type="number" placeholder="рей" style="max-width:60px" inputmode="decimal">
+      </div>
+      <button class="btn btn-outline" id="add-manual-btn">+ ДОБАВИТЬ СТРОКУ</button>
+    </div>
+
+  </div><!-- /tab-insert -->
+
+  <!-- ── ВКЛАДКА: ТАБЕЛЬ ───────────────────────────────── -->
+  <div id="tab-tabel" class="tab-content">
+
+    <div class="card" style="padding:0">
+      <div class="table-wrapper">
+        <table>
+          <thead><tr>
+            <th>Дата</th>
+            <th>Машина</th>
+            <th>Тип</th>
+            <th>Адрес / маршрут</th>
+            <th>Груз</th>
+            <th>Заказчик</th>
+            <th>Заказ ₽</th>
+            <th>Часов</th>
+            <th>Рейсов</th>
+            <th>Начислено ₽</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-small" id="copy-text-btn">📋 Копировать текстом</button>
+      <button class="btn-small danger" id="clear-all-btn">✕ Очистить табель</button>
+    </div>
+
+  </div><!-- /tab-tabel -->
+
+  <!-- ── ВКЛАДКА: ИТОГИ ────────────────────────────────── -->
+  <div id="tab-itogi" class="tab-content">
+
+    <div class="total-card">
+      <div class="total-row">
+        <span class="total-label">Всего часов</span>
+        <span class="total-value orange" id="tot-h">0</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Всего рейсов</span>
+        <span class="total-value" id="tot-t">0</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Начислено по табелю</span>
+        <span class="total-value orange" id="tot-p">0 ₽</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">
+          База расчёта
+          <span class="baza-hint" id="baza-hint"></span>
+        </span>
+        <span class="total-value green" id="tot-baza">0 ₽</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">− Официальный доход</span>
+        <input class="total-input" id="official" type="number"
+          placeholder="28500" inputmode="decimal">
+      </div>
+      <div class="total-row">
+        <span class="total-label">− Авансы</span>
+        <input class="total-input" id="advance" type="number"
+          placeholder="0" inputmode="decimal">
+      </div>
+      <div class="total-row">
+        <span class="total-label">− Заправки (топл. карта)</span>
+        <input class="total-input" id="fuel" type="number"
+          placeholder="0" inputmode="decimal">
+      </div>
+      <div class="total-row" style="border-top:2px solid #2a2a2a;margin-top:6px;padding-top:14px;border-bottom:none">
+        <span class="total-label" style="font-weight:800;font-size:15px;color:#f0f0f0;">НА РУКИ</span>
+        <span class="total-value hand-value" id="tot-rest">0 ₽</span>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn" id="save-pdf-btn">📄 Сохранить PDF</button>
+      <button class="btn btn-green" id="share-pdf-btn" style="margin-top:0">📤 Отправить PDF</button>
+    </div>
+
+  </div><!-- /tab-itogi -->
+
+  <!-- ── ВКЛАДКА: НАСТРОЙКИ ───────────────────────────── -->
+  <div id="tab-settings" class="tab-content">
+
+    <div class="card">
+      <div class="section-title">Профиль водителя</div>
+      <div class="field-group">
+        <label class="field-label">ФИО</label>
+        <input class="field-input" id="s-name" placeholder="Иванов И.И.">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Период</label>
+        <input class="field-input" id="s-period" placeholder="Май 2026">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Фикс. оклад ₽</label>
+        <input class="field-input" id="s-oklad" type="number" placeholder="0" inputmode="decimal">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">ИИ-парсер DeepSeek</div>
+      <div class="field-group">
+        <label class="field-label">API Ключ DeepSeek</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="field-input" id="s-api-key" type="password"
+            placeholder="sk-xxxxxxxxxxxxxxxx" style="flex:1">
+          <button class="btn-sm" id="s-api-key-toggle" style="white-space:nowrap;padding:12px 14px">👁</button>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:6px;">
+          Ключ хранится только на этом устройстве. Получить на
+          <a href="https://platform.deepseek.com/api_keys" target="_blank"
+            style="color:#f5a623;">platform.deepseek.com</a>
+        </div>
+      </div>
+      <button class="btn-sm" id="s-test-api" style="margin-top:8px;width:100%;padding:11px;">
+        Проверить соединение
+      </button>
+      <div class="ai-status" id="ai-status"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Смена пароля входа</div>
+      <div class="field-group">
+        <label class="field-label">Новый пароль</label>
+        <input class="field-input" id="s-new-password" type="password" placeholder="••••••••">
+      </div>
+      <button class="btn-sm" id="s-save-password" style="margin-top:4px">Сохранить пароль</button>
+    </div>
+
+    <button class="btn" id="s-save-btn">СОХРАНИТЬ НАСТРОЙКИ</button>
+
+  </div><!-- /tab-settings -->
+
+</div><!-- /app-container -->
+</div><!-- /main-app -->
+
+<!-- ── Скрипты (порядок важен!) ──────────────────────────── -->
+<script src="js/config.js"></script>
+<script src="js/fonts.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/calculator.js"></script>
+<script src="js/pdf-generator.js"></script>
+<script src="js/ui-renderer.js"></script>
+<script src="js/deepseek.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
